@@ -1,0 +1,9 @@
+{
+    //Vai ajudar na conversão do código javascript para manter 
+    // a compatibilidade com os navegadores ou ambiente como React-native
+    "presets" : ["@babel/preset-env"],
+    "plugins" : [
+        "@babel/plugin-proposal-object-rest-spread",
+        "@babel/plugin-transform-async-to-generator"
+    ]
+}
