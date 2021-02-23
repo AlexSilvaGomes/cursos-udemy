@@ -1,13 +1,18 @@
 
 import React from 'react';
-import { View, StyleSheet} from 'react-native';
-import MinMax from './components/MinMax'
+import { View, StyleSheet} from 'react-native'
+import Contador from './components/Contador'
+// import MinMax from './components/MinMax'
+import Botao from './components/Botao'
 //import Primeiro from './components/Primeiro'
 //import X, {Comp1, Comp2} from './components/Mult'
 
 export default () => (
   <View style={style.App}>  
-     <MinMax min={3} max={20}></MinMax>
+    <Contador inicial={100} incremento={10} />
+    <Contador />
+     {/* <Botao /> */}
+     {/* <MinMax min={3} max={20}></MinMax> */}
     {/* <Primeiro></Primeiro>
     <Comp1></Comp1>
     <Comp2></Comp2>
