@@ -1,0 +1,100 @@
+  AWSTemplateFormatVersion: '2010-09-09'
+  Description: 'AWS CloudFormation Template para criar um ambiente para testar o evento de TTL DynamoDB_Table.'
+ 
+  Parameters:
+  
+    #Solicita o nome da PK na criação da stack.
+    PKElementName:
+      Description: 'Nome do campo PrimaryKey'
+      Type: 'String'
+      AllowedPattern: '[a-zA-Z0-9]*'
+      MinLength: '1'
+      MaxLength: '2048'
+      ConstraintDescription: 'Apenas caracteres alfanuméricos são permitidos!'
+  
+    #Solicita o nome da TS na criação da stack.
+    TSElementName:
+      Description: 'Nome do campo Timestamp'
+      Type: 'String'
+      AllowedPattern: '[a-zA-Z0-9]*'
+      MinLength: '1'
+      MaxLength: '2048'
+      ConstraintDescription: 'Apenas caracteres alfanuméricos são permitidos!'
+  
+  Resources:
+
+    #Tabela DynamoDB com TTL a ser monitorada.
+    DynamoDBTableTTL:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - 
+            AttributeName: !Ref PKElementName
+            AttributeType: 'S'
+        KeySchema: 
+          - 
+            AttributeName: !Ref PKElementName 
+            KeyType: 'HASH'
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 10
+        TimeToLiveSpecification:
+          AttributeName: !Ref TSElementName
+          Enabled: true
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+
+    #Cria uma role para que a Lmbda possa ler o DynamoDB e gravar log no CloudWatch
+    MyFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          -
+            arn:aws:iam::aws:policy/service-role/AWSLambdaDynamoDBExecutionRole
+
+    #Função Lambda que vai ser acionada quando a tabela do DynamoDB for atualizada.
+    LambdaFunctionTrigger:
+      Type: AWS::Lambda::Function
+      Properties:
+        Runtime: nodejs12.x
+        Role: !GetAtt MyFunctionRole.Arn
+        Handler: index.handler
+        Code:
+          ZipFile: |
+            exports.handler = async (event, context) => {
+                for (const record of event.Records) {
+                    console.log(`${record.eventName} - ${record.eventID} : DynamoDB Record: %j`, record.dynamodb)
+                }
+                return `Successfully processed ${event.Records.length} records.`;
+            };
+        Description: Função Lambda para monitorar eventos do DynamoDB e logar no CloudWatch.
+        TracingConfig:
+          Mode: Active
+
+    #Cria a trigger do DynamoDB acionando a Lambda.
+    DataTableStream:
+      Type: AWS::Lambda::EventSourceMapping
+      Properties:
+        BatchSize: 1
+        Enabled: True
+        EventSourceArn: #trigger para eventos da tabela DynamoDB
+          Fn::GetAtt: [ DynamoDBTableTTL , StreamArn ]
+        FunctionName: #Função Lambda a ser invocada
+          Fn::GetAtt: [ LambdaFunctionTrigger , Arn ]
+        StartingPosition: LATEST       
+
+  Outputs:
+    TableName:
+      Value: !Ref DynamoDBTableTTL
+      Description: 'Nome da tabela DynamoDB criada.'
+      Value: !Ref MyFunctionRole
+      Description: 'Nome da IAM Role criada.'
+      Value: !Ref LambdaFunctionTrigger
+      Description: 'Nome da Lambda Function criada.'
